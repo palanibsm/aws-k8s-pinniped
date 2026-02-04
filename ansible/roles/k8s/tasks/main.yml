@@ -1,0 +1,35 @@
+---
+- name: Install prerequisites
+  apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gpg
+    state: present
+    update_cache: yes
+
+- name: Add Kubernetes apt key
+  shell: |
+    curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  args:
+    creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+- name: Add Kubernetes repository
+  copy:
+    dest: /etc/apt/sources.list.d/kubernetes.list
+    content: |
+      deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /
+
+- name: Install Kubernetes binaries
+  apt:
+    name:
+      - kubelet
+      - kubeadm
+      - kubectl
+      - conntrack
+    state: present
+    update_cache: yes
+
+- name: Hold Kubernetes packages
+  command: apt-mark hold kubelet kubeadm kubectl

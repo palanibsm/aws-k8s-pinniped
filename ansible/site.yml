@@ -1,1 +1,21 @@
+---
+- name: Prepare all nodes
+  hosts: all
+  become: yes
+  roles:
+    - common
+    - containerd
+    - k8s
 
+- name: Initialize control plane
+  hosts: control_plane
+  become: yes
+  roles:
+    - control-plane
+    - calico
+
+- name: Join worker nodes
+  hosts: workers
+  become: yes
+  roles:
+    - worker

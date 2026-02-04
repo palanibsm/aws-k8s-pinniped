@@ -1,0 +1,24 @@
+---
+- name: Install Calico operator (server-side apply)
+  command: kubectl apply --server-side --force-conflicts -f https://raw.githubusercontent.com/projectcalico/calico/v3.29.1/manifests/tigera-operator.yaml
+  become_user: ubuntu
+
+- name: Create Calico installation manifest
+  copy:
+    dest: /tmp/calico.yaml
+    content: |
+      apiVersion: operator.tigera.io/v1
+      kind: Installation
+      metadata:
+        name: default
+      spec:
+        calicoNetwork:
+          ipPools:
+          - cidr: 192.168.0.0/16
+            encapsulation: VXLANCrossSubnet
+            natOutgoing: Enabled
+            nodeSelector: all()
+
+- name: Apply Calico installation
+  command: kubectl apply -f /tmp/calico.yaml
+  become_user: ubuntu

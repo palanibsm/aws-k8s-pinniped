@@ -7,4 +7,4 @@ Steps:
 1. Installed AWS CLI via MSI
 2. Configured aws configure
 3. Installed terraform
-4. 
+4. Installed WSL, Followed by Ubuntu on my win laptop. Then installed Ansible on laptop. 

@@ -16,6 +16,7 @@ override.tf.json
 *.retry
 .ansible/
 ansible.log
+.gitkeep
 
 # Secrets / env (uncomment if you use them)
 # .env
