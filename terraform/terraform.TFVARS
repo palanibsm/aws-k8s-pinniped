@@ -1,0 +1,10 @@
+aws_region           = "ap-southeast-1"
+project_name         = "k8s-prod"
+vpc_cidr             = "10.0.0.0/16"
+public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24"]
+availability_zones   = ["ap-southeast-1a", "ap-southeast-1b"]
+instance_type        = "c7i-flex.large"
+ssh_key_path         = "~/.ssh/k8s_linux.pub"
+control_plane_ip     = "10.0.1.10"
+worker_ips           = ["10.0.1.11", "10.0.2.10"]
+cluster_name         = "k8s-prod"

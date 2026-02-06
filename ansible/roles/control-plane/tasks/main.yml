@@ -1,10 +1,21 @@
 ---
-- name: Initialize Kubernetes control plane
-  command: kubeadm init --pod-network-cidr=192.168.0.0/16
-  args:
-    creates: /etc/kubernetes/admin.conf
+- name: Check if Kubernetes is already initialized
+  stat:
+    path: /etc/kubernetes/admin.conf
+  register: kubeadm_initialized
 
-- name: Create kube config directory
+- name: Initialize Kubernetes control plane
+  command: >
+    kubeadm init
+    --control-plane-endpoint="{{ control_plane_endpoint }}"
+    --upload-certs
+    --pod-network-cidr="{{ pod_network_cidr }}"
+    --service-cidr="{{ service_cidr }}"
+    --apiserver-advertise-address="{{ control_plane_private_ip }}"
+    --apiserver-cert-extra-sans="{{ nlb_dns }},{{ control_plane_public_ip }},{{ control_plane_private_ip }}"
+  when: not kubeadm_initialized.stat.exists
+
+- name: Create .kube directory for ubuntu user
   file:
     path: /home/ubuntu/.kube
     state: directory
@@ -12,18 +23,35 @@
     group: ubuntu
     mode: '0755'
 
-- name: Copy admin kubeconfig
+- name: Copy admin kubeconfig to ubuntu user
   copy:
     src: /etc/kubernetes/admin.conf
     dest: /home/ubuntu/.kube/config
     remote_src: yes
     owner: ubuntu
     group: ubuntu
+    mode: '0600'
 
-- name: Generate join command
+- name: Wait for control plane to be ready
+  command: kubectl get nodes
+  become_user: ubuntu
+  register: nodes_ready
+  until: nodes_ready.rc == 0
+  retries: 10
+  delay: 10
+  changed_when: false
+
+- name: Generate join command for workers
   command: kubeadm token create --print-join-command
-  register: join_cmd
+  register: join_command_output
+  changed_when: false
 
-- name: Store join command
+- name: Store join command as fact
   set_fact:
-    kubeadm_join_cmd: "{{ join_cmd.stdout }}"
+    kubeadm_join_command: "{{ join_command_output.stdout }}"
+
+- name: Save join command to file
+  copy:
+    content: "{{ kubeadm_join_command }}"
+    dest: /tmp/kubeadm_join_command.sh
+    mode: '0755'

@@ -1,0 +1,63 @@
+---
+- name: Check if cert-manager is already installed
+  command: kubectl get namespace cert-manager
+  become_user: ubuntu
+  register: cert_manager_check
+  failed_when: false
+  changed_when: false
+
+- name: Install cert-manager
+  become_user: ubuntu
+  command: >
+    kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/{{ cert_manager_version }}/cert-manager.yaml
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+  when: cert_manager_check.rc != 0
+
+- name: Wait for cert-manager to be ready
+  become_user: ubuntu
+  command: kubectl wait --for=condition=Available --timeout=300s deployment/cert-manager -n cert-manager
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+  register: cert_manager_ready
+  retries: 5
+  delay: 30
+  until: cert_manager_ready.rc == 0
+  changed_when: false
+
+- name: Wait for cert-manager webhook to be ready
+  become_user: ubuntu
+  command: kubectl wait --for=condition=Available --timeout=300s deployment/cert-manager-webhook -n cert-manager
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+  register: webhook_ready
+  retries: 5
+  delay: 30
+  until: webhook_ready.rc == 0
+  changed_when: false
+
+- name: Create self-signed ClusterIssuer
+  become_user: ubuntu
+  shell: |
+    cat <<EOF | kubectl apply -f -
+    apiVersion: cert-manager.io/v1
+    kind: ClusterIssuer
+    metadata:
+      name: selfsigned-issuer
+    spec:
+      selfSigned: {}
+    EOF
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+
+- name: Verify cert-manager installation
+  become_user: ubuntu
+  command: kubectl get pods -n cert-manager
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+  register: cert_manager_pods
+  changed_when: false
+
+- name: Display cert-manager pods status
+  debug:
+    var: cert_manager_pods.stdout_lines

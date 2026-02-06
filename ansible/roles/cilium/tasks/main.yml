@@ -1,0 +1,56 @@
+---
+- name: Check if Cilium is already installed
+  command: kubectl get daemonset -n kube-system cilium
+  become_user: ubuntu
+  register: cilium_check
+  failed_when: false
+  changed_when: false
+
+- name: Download Cilium CLI
+  get_url:
+    url: "https://github.com/cilium/cilium-cli/releases/download/v{{ cilium_cli_version }}/cilium-linux-amd64.tar.gz"
+    dest: /tmp/cilium-cli.tar.gz
+  when: cilium_check.rc != 0
+
+- name: Extract Cilium CLI
+  unarchive:
+    src: /tmp/cilium-cli.tar.gz
+    dest: /usr/local/bin
+    remote_src: yes
+    mode: '0755'
+  when: cilium_check.rc != 0
+
+- name: Install Cilium CNI
+  become_user: ubuntu
+  command: >
+    cilium install
+    --version {{ cilium_version }}
+    --set ipam.mode=kubernetes
+    --set routingMode=tunnel
+    --set tunnelProtocol=vxlan
+  when: cilium_check.rc != 0
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+
+- name: Wait for Cilium to be ready
+  become_user: ubuntu
+  command: cilium status --wait
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+  register: cilium_status
+  retries: 30
+  delay: 10
+  until: cilium_status.rc == 0
+  changed_when: false
+
+- name: Verify Cilium installation
+  become_user: ubuntu
+  command: kubectl get pods -n kube-system -l k8s-app=cilium
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+  register: cilium_pods
+  changed_when: false
+
+- name: Display Cilium pods status
+  debug:
+    var: cilium_pods.stdout_lines

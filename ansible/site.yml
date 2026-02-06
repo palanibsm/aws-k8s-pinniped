@@ -1,21 +1,60 @@
 ---
+# Phase 1: Prepare all nodes
 - name: Prepare all nodes
-  hosts: all
+  hosts: k8s_cluster
   become: yes
   roles:
-    - common
-    - containerd
-    - k8s
+    - role: common
+      tags: [common, prepare]
+    - role: containerd
+      tags: [containerd, prepare]
+    - role: k8s
+      tags: [k8s, prepare]
 
+# Phase 2: Initialize control plane
 - name: Initialize control plane
   hosts: control_plane
   become: yes
   roles:
-    - control-plane
-    - calico
+    - role: control-plane
+      tags: [control-plane, init]
 
+# Phase 3: Install Cilium CNI
+- name: Install Cilium CNI
+  hosts: control_plane
+  become: yes
+  roles:
+    - role: cilium
+      tags: [cilium, cni]
+
+# Phase 4: Join worker nodes
 - name: Join worker nodes
   hosts: workers
   become: yes
   roles:
-    - worker
+    - role: worker
+      tags: [worker, join]
+
+# Phase 5: Install cert-manager
+- name: Install cert-manager
+  hosts: control_plane
+  become: no
+  roles:
+    - role: cert-manager
+      tags: [cert-manager, certificates]
+
+# Phase 6: Install AWS Load Balancer Controller
+- name: Install AWS Load Balancer Controller
+  hosts: control_plane
+  become: no
+  roles:
+    - role: aws-lb-controller
+      tags: [aws-lb-controller, ingress]
+
+# Phase 7: Pinniped (disabled for now - will enable later)
+# - name: Configure Pinniped authentication
+#   hosts: control_plane
+#   become: yes
+#   roles:
+#     - role: pinniped
+#       tags: [pinniped]

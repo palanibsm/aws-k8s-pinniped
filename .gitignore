@@ -19,9 +19,9 @@ ansible.log
 .gitkeep
 
 # Secrets / env (uncomment if you use them)
-# .env
-# *.pem
-# group_vars/*/vault.yml
+.env
+*.pem
+group_vars/
 
 # OS
 .DS_Store

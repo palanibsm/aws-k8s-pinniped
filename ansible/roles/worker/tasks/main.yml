@@ -1,5 +1,26 @@
 ---
-- name: Join worker to cluster
-  command: "{{ hostvars[groups['control_plane'][0]].kubeadm_join_cmd }}"
-  args:
-    creates: /etc/kubernetes/kubelet.conf
+- name: Check if node is already joined
+  stat:
+    path: /etc/kubernetes/kubelet.conf
+  register: kubelet_conf
+
+- name: Fetch join command from control plane
+  delegate_to: "{{ groups['control_plane'][0] }}"
+  command: cat /tmp/kubeadm_join_command.sh
+  register: join_command_output
+  when: not kubelet_conf.stat.exists
+  changed_when: false
+
+- name: Join worker node to cluster
+  command: "{{ join_command_output.stdout }}"
+  when: not kubelet_conf.stat.exists
+
+- name: Wait for node to be ready
+  delegate_to: "{{ groups['control_plane'][0] }}"
+  command: kubectl get node {{ ansible_hostname }} -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
+  register: node_ready
+  until: node_ready.stdout == "True"
+  retries: 30
+  delay: 10
+  when: not kubelet_conf.stat.exists
+  changed_when: false
